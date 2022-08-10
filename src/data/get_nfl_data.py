@@ -24,6 +24,63 @@ def convert_height_to_inches(height_string: str) -> int:
     height = feet * 12 + inches
     return height
 
+def half_ppr_scoring(
+    rushing_tds: int, 
+    receiving_tds: int, 
+    rushing_yards: int, 
+    receiving_yards: int,
+    receptions: int,
+    passing_tds: int,
+    interceptions: int,
+    fumbles: int,
+    passing_yards: int,
+    two_pt_conversions: int
+) -> float:
+    """
+    Calculates a player's fantasy point total in 
+    Half-Point-per-Reception scoring.
+    
+    Arguments:
+        rushing_tds (int): Number of rushing touchdowns scored by the player.
+        receiving_tds (int): Number of receiving touchdowns scored by the player.
+        rushing_yards (int): Amount of rushing yards by the player.
+        receiving_yards (int): Amount of receiving yards by the player.
+        receptions (int): Number of receptions by the player.
+        passing_tds (int): Number of passing touchdowns scored by the player.
+        interceptions (int): Number of interceptions thrown by the player.
+        fumbles (int): Number of times the player fumbled the ball to the opponent.
+        passing_yards (int): Number of passing yards thrown by the player.
+        two_pt_conversions (int): Number of two point conversions scored by the player.
+        
+    Returns:
+        float: Fantasy Score in Half-Point-per-Reception scoring.
+    
+    """
+    
+    RUSHING_TD = 6
+    RECEIVING_TD = 6
+    RUSHING_YARDS = 0.1
+    RECEIVING_YARDS = 0.1
+    RECEPTIONS = 0.5
+    PASSING_TD = 4
+    INTERCEPTION = -1
+    FUMBLE = -2
+    PASSING_YARDS = 1/25
+    TWO_PT_CONVERSION = 2
+    
+    half_ppr_score = rushing_tds * RUSHING_TD + \
+                     receiving_tds * RECEIVING_TD + \
+                     rushing_yards * RUSHING_YARDS + \
+                     receiving_yards * RECEIVING_YARDS + \
+                     receptions * RECEPTIONS + \
+                     passing_tds * PASSING_TD + \
+                     interceptions * INTERCEPTION + \
+                     fumbles * FUMBLE + \
+                     passing_yards * PASSING_YARDS + \
+                     two_pt_conversions * TWO_PT_CONVERSION
+    
+    return half_ppr_score
+
 def pull_data_from_nfl_data_py(start_year: int, end_year: int) -> [pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     helper function to pull data.
@@ -43,7 +100,8 @@ def pull_data_from_nfl_data_py(start_year: int, end_year: int) -> [pd.DataFrame,
     roster_data = nfl.import_rosters(years=years_to_analyze)
     snap = nfl.import_snap_counts(years=years_to_analyze)
     team_info = nfl.import_team_desc()
-    return [weekly_data, roster_data, snap, team_info]
+    inj = nfl.import_injuries(years_to_analyze)
+    return [weekly_data, roster_data, snap, team_info, inj]
 
 @click.command()
 @click.option('--start_year', default=2013, help='First year to pull metrics from')
@@ -71,7 +129,7 @@ def process_data(start_year: int, end_year: int, data_filepath: str):
             os.makedirs(filepath)
 
     click.echo('Downloading raw data...')
-    weekly_data, roster_data, snap, team_info = pull_data_from_nfl_data_py(
+    weekly_data, roster_data, snap, team_info, inj = pull_data_from_nfl_data_py(
         start_year,
         end_year
     )
@@ -154,7 +212,8 @@ def process_data(start_year: int, end_year: int, data_filepath: str):
         'defense_pct',
         'st_snaps',
         'st_pct',
-        
+        'fantasy_points',
+        'fantasy_points_ppr',
     ]
     data.drop(
         columns_to_drop,
@@ -262,6 +321,66 @@ def process_data(start_year: int, end_year: int, data_filepath: str):
     data.insert(2, 'last_name', data.pop('last_name'))
     data.insert(3, 'team', data.pop('team'))
     data.insert(4, 'opponent', data.pop('opponent'))
+
+    inj = inj[
+        inj['position'].isin(['WR', 'RB', 'TE', 'QB'])
+    ]
+    inj = inj[inj['game_type'] == 'REG']
+    inj['season'] = inj['season'].astype(int)
+    inj['week'] = inj['week'].astype(int)
+    inj['report_primary_injury'] = inj['report_primary_injury'].str.lower()
+    inj['report_secondary_injury'] = inj['report_secondary_injury'].str.lower()
+    inj['report_status'] = inj['report_status'].str.lower()
+    inj['practice_primary_injury'] = inj['practice_primary_injury'].str.lower()
+    inj['practice_secondary_injury'] = inj['practice_secondary_injury'].str.lower()
+    inj['practice_status'] = inj['practice_status'].str.lower()
+
+    injuries = pd.DataFrame(
+        inj.groupby(['season', 'week', 'team', 'position', ])[['report_status', 'practice_status']].value_counts()
+    ).reset_index()
+
+    injuries = pd.get_dummies(
+        injuries, 
+        columns=['position'], 
+        prefix='positional_injuries'
+    ).groupby(['season', 'week', 'team']).sum().reset_index()
+    injuries.drop(0, axis=1, inplace=True)
+
+    data = pd.merge(
+        left=data,
+        right=injuries,
+        left_on=['season', 'week', 'team'],
+        right_on=['season', 'week', 'team'],
+        how='left'
+    )
+
+    data['positional_injuries_QB'] = data['positional_injuries_QB'].fillna(0)
+    data['positional_injuries_RB'] = data['positional_injuries_RB'].fillna(0)
+    data['positional_injuries_TE'] = data['positional_injuries_TE'].fillna(0)
+    data['positional_injuries_WR'] = data['positional_injuries_WR'].fillna(0)
+
+    data['positional_injuries_QB'] = data['positional_injuries_QB'].astype(int)
+    data['positional_injuries_RB'] = data['positional_injuries_RB'].astype(int)
+    data['positional_injuries_TE'] = data['positional_injuries_TE'].astype(int)
+    data['positional_injuries_WR'] = data['positional_injuries_WR'].astype(int)
+    data.drop_duplicates(inplace=True)
+
+    click.echo('Calculating fantasy score...')
+    data['fantasy_half_ppr'] = data.apply(
+        lambda x: half_ppr_scoring(
+            x.rushing_tds, 
+            x['receiving_tds'],
+            x['rushing_yards'],
+            x['receiving_yards'],
+            x['receptions'],
+            x['passing_tds'],
+            x['interceptions'],
+            x['sack_fumbles_lost'] + x['rushing_fumbles_lost'] + x['receiving_fumbles_lost'],
+            x['passing_yards'],
+            x['passing_2pt_conversions'] + x['rushing_2pt_conversions'] + x['receiving_2pt_conversions']
+        ),
+        axis=1
+    )
 
     data.to_csv(
         os.path.join(filepath, filename), 
