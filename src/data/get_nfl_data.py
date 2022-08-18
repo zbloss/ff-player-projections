@@ -250,49 +250,49 @@ def process_data(start_year: int, end_year: int, data_filepath: str):
         inplace=True
     )
 
-    data['division_matchup'] = np.where(
-        (data['team_division'] == data['opponent_division']),
-        1, 
-        0
-    )
+    # data['division_matchup'] = np.where(
+    #     (data['team_division'] == data['opponent_division']),
+    #     1, 
+    #     0
+    # )
 
-    data['conference_matchup'] = np.where(
-        (data['team_conf'] == data['opponent_conf']),
-        1, 
-        0
-    )
+    # data['conference_matchup'] = np.where(
+    #     (data['team_conf'] == data['opponent_conf']),
+    #     1, 
+    #     0
+    # )
 
-    data = pd.merge(
-        left=data,
-        right=pd.get_dummies(data['team_conf'], prefix='team'),
-        left_index=True,
-        right_index=True,
-        how='inner'
-    )
+    # data = pd.merge(
+    #     left=data,
+    #     right=pd.get_dummies(data['team_conf'], prefix='team'),
+    #     left_index=True,
+    #     right_index=True,
+    #     how='inner'
+    # )
 
-    data = pd.merge(
-        left=data,
-        right=pd.get_dummies(data['opponent_conf'], prefix='opponent'),
-        left_index=True,
-        right_index=True,
-        how='inner'
-    )
+    # data = pd.merge(
+    #     left=data,
+    #     right=pd.get_dummies(data['opponent_conf'], prefix='opponent'),
+    #     left_index=True,
+    #     right_index=True,
+    #     how='inner'
+    # )
 
-    data = pd.merge(
-        left=data,
-        right=pd.get_dummies(data['team_division'], prefix='team'),
-        left_index=True,
-        right_index=True,
-        how='inner'
-    )
+    # data = pd.merge(
+    #     left=data,
+    #     right=pd.get_dummies(data['team_division'], prefix='team'),
+    #     left_index=True,
+    #     right_index=True,
+    #     how='inner'
+    # )
 
-    data = pd.merge(
-        left=data,
-        right=pd.get_dummies(data['opponent_division'], prefix='opponent'),
-        left_index=True,
-        right_index=True,
-        how='inner'
-    )
+    # data = pd.merge(
+    #     left=data,
+    #     right=pd.get_dummies(data['opponent_division'], prefix='opponent'),
+    #     left_index=True,
+    #     right_index=True,
+    #     how='inner'
+    # )
 
     data = pd.merge(
         left=data,
@@ -319,50 +319,50 @@ def process_data(start_year: int, end_year: int, data_filepath: str):
     data.insert(0, 'player_id', data.pop('player_id'))
     data.insert(1, 'first_name', data.pop('first_name'))
     data.insert(2, 'last_name', data.pop('last_name'))
-    data.insert(3, 'team', data.pop('team'))
-    data.insert(4, 'opponent', data.pop('opponent'))
+    # data.insert(3, 'team', data.pop('team'))
+    # data.insert(4, 'opponent', data.pop('opponent'))
 
-    inj = inj[
-        inj['position'].isin(['WR', 'RB', 'TE', 'QB'])
-    ]
-    inj = inj[inj['game_type'] == 'REG']
-    inj['season'] = inj['season'].astype(int)
-    inj['week'] = inj['week'].astype(int)
-    inj['report_primary_injury'] = inj['report_primary_injury'].str.lower()
-    inj['report_secondary_injury'] = inj['report_secondary_injury'].str.lower()
-    inj['report_status'] = inj['report_status'].str.lower()
-    inj['practice_primary_injury'] = inj['practice_primary_injury'].str.lower()
-    inj['practice_secondary_injury'] = inj['practice_secondary_injury'].str.lower()
-    inj['practice_status'] = inj['practice_status'].str.lower()
+    # inj = inj[
+    #     inj['position'].isin(['WR', 'RB', 'TE', 'QB'])
+    # ]
+    # inj = inj[inj['game_type'] == 'REG']
+    # inj['season'] = inj['season'].astype(int)
+    # inj['week'] = inj['week'].astype(int)
+    # inj['report_primary_injury'] = inj['report_primary_injury'].str.lower()
+    # inj['report_secondary_injury'] = inj['report_secondary_injury'].str.lower()
+    # inj['report_status'] = inj['report_status'].str.lower()
+    # inj['practice_primary_injury'] = inj['practice_primary_injury'].str.lower()
+    # inj['practice_secondary_injury'] = inj['practice_secondary_injury'].str.lower()
+    # inj['practice_status'] = inj['practice_status'].str.lower()
 
-    injuries = pd.DataFrame(
-        inj.groupby(['season', 'week', 'team', 'position', ])[['report_status', 'practice_status']].value_counts()
-    ).reset_index()
+    # injuries = pd.DataFrame(
+    #     inj.groupby(['season', 'week', 'team', 'position', ])[['report_status', 'practice_status']].value_counts()
+    # ).reset_index()
 
-    injuries = pd.get_dummies(
-        injuries, 
-        columns=['position'], 
-        prefix='positional_injuries'
-    ).groupby(['season', 'week', 'team']).sum().reset_index()
-    injuries.drop(0, axis=1, inplace=True)
+    # injuries = pd.get_dummies(
+    #     injuries, 
+    #     columns=['position'], 
+    #     prefix='positional_injuries'
+    # ).groupby(['season', 'week', 'team']).sum().reset_index()
+    # injuries.drop(0, axis=1, inplace=True)
 
-    data = pd.merge(
-        left=data,
-        right=injuries,
-        left_on=['season', 'week', 'team'],
-        right_on=['season', 'week', 'team'],
-        how='left'
-    )
+    # data = pd.merge(
+    #     left=data,
+    #     right=injuries,
+    #     left_on=['season', 'week', 'team'],
+    #     right_on=['season', 'week', 'team'],
+    #     how='left'
+    # )
 
-    data['positional_injuries_QB'] = data['positional_injuries_QB'].fillna(0)
-    data['positional_injuries_RB'] = data['positional_injuries_RB'].fillna(0)
-    data['positional_injuries_TE'] = data['positional_injuries_TE'].fillna(0)
-    data['positional_injuries_WR'] = data['positional_injuries_WR'].fillna(0)
+    # data['positional_injuries_QB'] = data['positional_injuries_QB'].fillna(0)
+    # data['positional_injuries_RB'] = data['positional_injuries_RB'].fillna(0)
+    # data['positional_injuries_TE'] = data['positional_injuries_TE'].fillna(0)
+    # data['positional_injuries_WR'] = data['positional_injuries_WR'].fillna(0)
 
-    data['positional_injuries_QB'] = data['positional_injuries_QB'].astype(int)
-    data['positional_injuries_RB'] = data['positional_injuries_RB'].astype(int)
-    data['positional_injuries_TE'] = data['positional_injuries_TE'].astype(int)
-    data['positional_injuries_WR'] = data['positional_injuries_WR'].astype(int)
+    # data['positional_injuries_QB'] = data['positional_injuries_QB'].astype(int)
+    # data['positional_injuries_RB'] = data['positional_injuries_RB'].astype(int)
+    # data['positional_injuries_TE'] = data['positional_injuries_TE'].astype(int)
+    # data['positional_injuries_WR'] = data['positional_injuries_WR'].astype(int)
     data.drop_duplicates(inplace=True)
 
     click.echo('Calculating fantasy score...')

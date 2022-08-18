@@ -2,3 +2,4 @@ nfl-data-py==0.2.8
 matplotlib==3.5.2
 seaborn==0.11.2
 click==8.0.3
+composeml==0.9.0
